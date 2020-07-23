@@ -30,7 +30,7 @@ to generate data.
 
 This tap:
 
- - Expects to read your AWS credentials from the environment variables: "aws_access_key_id" and "aws_secret_access_key"
+ - Expects to read your AWS credentials from the environment variables: "AWS_ACCESS_KEY_ID" and "AWS_SECRET_ACCESS_KEY"
  - Searches S3 for files matching the spec given.
  - Samples 1000 records out of the first five files found to infer datatypes.
  - Iterates through files from least recently modified to most recently modified, outputting data according
