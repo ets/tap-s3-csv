@@ -30,6 +30,7 @@ to generate data.
 
 This tap:
 
+ - Expects to read your AWS credentials from the environment variables: "aws_access_key_id" and "aws_secret_access_key"
  - Searches S3 for files matching the spec given.
  - Samples 1000 records out of the first five files found to infer datatypes.
  - Iterates through files from least recently modified to most recently modified, outputting data according
@@ -51,8 +52,6 @@ And a config file:
 
 ```json
 {
-    "aws_access_key_id": "YOUR_ACCESS_KEY_ID",
-    "aws_secret_access_key": "YOUR_SECRET_ACCESS_KEY",
     "start_date": "2017-05-01T00:00:00Z",
     "bucket": "csv-bucket",
     "tables": [
@@ -97,10 +96,6 @@ See below for an exhaustive list of configuration fields:
 
 ```javascript
 {
-    // your AWS credentials go here.
-    "aws_access_key_id": "YOUR_ACCESS_KEY_ID",
-    "aws_secret_access_key": "YOUR_SECRET_ACCESS_KEY",
-
     // the start date to use on the first run. the tap outputs an updated state on each
     // run which you can use going forward for incremental replication
     "start_date": "2017-05-01T00:00:00Z",
