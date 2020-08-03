@@ -1,7 +1,13 @@
 # tap-s3-csv
-Author: Connor McArthur (connor@fishtownanalytics.com)
+A [Meltano](https://meltano.com/) compatible [Singer](singer.io) tap for reading delimited content from S3 by:
+Eric Simmerman (ets@bitacuity.com)
 
-[![CircleCI](https://circleci.com/gh/fishtown-analytics/tap-s3-csv/tree/master.svg?style=shield)](https://circleci.com/gh/fishtown-analytics/tap-s3-csv) [![Code Climate](https://codeclimate.com/github/fishtown-analytics/tap-s3-csv/badges/gpa.svg)](https://codeclimate.com/github/fishtown-analytics/tap-s3-csv)
+[![CircleCI](https://circleci.com/gh/bitacuity/tap-s3-csv/tree/master.svg?style=shield)](https://circleci.com/gh/bitacuity/tap-s3-csv) [![Code Climate](https://codeclimate.com/github/bitacuity/tap-s3-csv/badges/gpa.svg)](https://codeclimate.com/github/bitacuity/tap-s3-csv)
+
+Forked from the smart_open adaptation from: 
+https://github.com/retentionscience/tap-s3-csv
+
+Original author of the [Singer](singer.io) tap was Connor McArthur (connor@fishtownanalytics.com)
 
 [Singer](singer.io) tap that produces JSON-formatted data following
 the [Singer spec](https://github.com/singer-io/getting-started/blob/master/SPEC.md).
@@ -54,6 +60,7 @@ And a config file:
 {
     "start_date": "2017-05-01T00:00:00Z",
     "bucket": "csv-bucket",
+    "strip_newlines": true,
     "tables": [
         {
             "name": "bluths",
@@ -102,6 +109,9 @@ See below for an exhaustive list of configuration fields:
 
     // the bucket to use. make sure the AWS credentials provided have read access.
     "bucket": "csv-bucket",
+
+    // Attempt to strip newlines from each row as it is written. Some Singer targets do not properly handle newlines in message bodies 
+    "strip_newlines": true,
 
     // table definitions. you can specify multiple tables to be pulled from a given
     // bucket.

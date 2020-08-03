@@ -2,3 +2,4 @@
 *.egg-info/
 *.pyc
 .idea/
+tap_s3_csv/test/G2_Products_2020-04.csv
