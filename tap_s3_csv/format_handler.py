@@ -1,13 +1,21 @@
 from smart_open import smart_open
 
 import boto3
+from botocore.response import StreamingBody
+import codecs
+from codecs import StreamReader
+import re
 import tap_s3_csv.csv_handler
 import tap_s3_csv.excel_handler
 
 from io import BytesIO
 
 def open_file_for_streaming(*args, **kwargs):    
-    return smart_open(*args, **kwargs)
+    streamreader = smart_open(*args, **kwargs)    
+    ## Need to monkey path the codecs reader
+    streamreader.mp_newline = '\n'
+    streamreader.readline = mp_readline.__get__(streamreader,StreamReader) 
+    return streamreader
 
 # def get_file_handle(config, s3_path):
 #     bucket = config['bucket']
@@ -19,9 +27,93 @@ def get_file_handle(config, s3_path):
     s3_client = boto3.resource('s3')
     s3_bucket = s3_client.Bucket(bucket)
     s3_object = s3_bucket.Object(s3_path)    
-    return s3_object.get()['Body']
 
+    streamable = s3_object.get()['Body']
     
+    ## Need to monkey path the codecs reader
+    stream_decoder = codecs.getreader('utf-8')(streamable)
+    stream_decoder.mp_newline = '\n'
+    stream_decoder.readline = mp_readline.__get__(stream_decoder,StreamReader)
+    return stream_decoder #universal_newline_stripper(stream_decoder)
+
+def mp_readline(self, size=None, keepends=False):
+    """ Read one line from the input stream and return the
+        decoded data.
+        size, if given, is passed as size argument to the
+        read() method.
+    """    
+    # If we have lines cached from an earlier read, return
+    # them unconditionally
+    if self.linebuffer:
+        line = self.linebuffer[0]
+        del self.linebuffer[0]
+        if len(self.linebuffer) == 1:
+            # revert to charbuffer mode; we might need more data
+            # next time
+            self.charbuffer = self.linebuffer[0]
+            self.linebuffer = None
+        if not keepends:
+            line = line.split(self.mp_newline)[0]
+        return line
+
+    readsize = size or 72
+    line = self._empty_charbuffer
+    # If size is given, we call read() only once
+    while True:
+        data = self.read(readsize, firstline=True)
+        if data:
+            # If we're at a "\r" read one extra character (which might
+            # be a "\n") to get a proper line ending. If the stream is
+            # temporarily exhausted we return the wrong line ending.
+            if (isinstance(data, str) and data.endswith("\r")) or \
+                (isinstance(data, bytes) and data.endswith(b"\r")):
+                data += self.read(size=1, chars=1)
+
+        line += data
+        lines = line.split(self.mp_newline)
+        if lines:
+            if len(lines) > 1:
+                # More than one line result; the first line is a full line
+                # to return
+                line = lines[0]
+                del lines[0]
+                if len(lines) > 1:
+                    # cache the remaining lines
+                    lines[-1] += self.charbuffer
+                    self.linebuffer = lines
+                    self.charbuffer = None
+                else:
+                    # only one remaining line, put it back into charbuffer
+                    self.charbuffer = lines[0] + self.charbuffer
+                if not keepends:
+                    line = line.split(self.mp_newline)[0]
+                break
+            line0withend = lines[0]
+            line0withoutend = lines[0].split(self.mp_newline)[0]
+            if line0withend != line0withoutend: # We really have a line end
+                # Put the rest back together and keep it until the next call
+                self.charbuffer = self._empty_charbuffer.join(lines[1:]) + \
+                                    self.charbuffer
+                if keepends:
+                    line = line0withend
+                else:
+                    line = line0withoutend
+                break
+        # we didn't get anything or this was our only try
+        if not data or size is not None:
+            if line and not keepends:
+                line = line.split(self.mp_newline)[0]
+            break
+        if readsize < 8000:
+            readsize *= 2
+    return line
+
+
+def universal_newline_stripper(streaming_body):
+    for row in streaming_body:        
+        # print(row)
+        # yield re.sub(r'\u000D\u000A|[\u000A\u000B\u000C\u000D\u0085\u2028\u2029]', '', row)        
+        yield re.sub(r'[\u000A\u000B\u000C\u000D\u0085\u2028\u2029]', '', row)        
 
 def get_row_iterator(config, table_spec, s3_path):
     file_handle = get_file_handle(config, s3_path)

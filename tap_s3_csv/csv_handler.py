@@ -5,50 +5,32 @@ import boto3
 
 from tap_s3_csv.logger import LOGGER as logger
 
-class BinaryDictReader(csv.DictReader):
-
-    def __init__(self, f, fieldnames=None, restkey=None, restval=None,
-                 dialect="excel", *args, **kwds):
-        self._fieldnames = fieldnames   # list of keys for the dict
-        self.restkey = restkey          # key to catch long rows
-        self.restval = restval          # default value for short rows
-        self.reader = f
-        self.dialect = dialect
-        self.line_num = 0
+class StreamingBodyDictReader(csv.DictReader):
 
     @property
     def fieldnames(self):
         if self._fieldnames is None:
             try:
-                self._fieldnames = self.read_cstring(self.reader)
-            except StopIteration:
+                self._fieldnames = next(self.reader)
+            except StopIteration as si:
+                print(si)
                 pass
         self.line_num = self.reader.line_num
         return self._fieldnames
-
-    def read_cstring(self,reader) -> bytes:
-        ret = []
-        c = ""
-        while c != "\n":
-            ret.append(c)
-            c = reader.read(1)
-            if not c:
-                raise ValueError("Unterminated string: %r" % (ret))
-        return "".join(ret)
 
 
     def __next__(self):
         if self.line_num == 0:
             # Used only for its side effect.
             self.fieldnames
-        row = self.read_cstring(self.reader)
+        row = next(self.reader)
         self.line_num = self.reader.line_num
 
         # unlike the basic reader, we prefer not to return blanks,
         # because we will typically wind up with a dict full of None
         # values
         while row == []:
-            row = self.read_cstring(self.reader)
+            row = next(self.reader)
 
         #TODO: if config['strip_newlines']:                
         d = dict(zip(self.fieldnames, [ re.sub(r'\u000D\u000A|[\u000A\u000B\u000C\u000D\u0085\u2028\u2029]', '', item) for item in row ] ))
@@ -90,6 +72,6 @@ def get_row_iterator(table_spec, file_handle):
     if 'field_names' in table_spec:
         field_names = table_spec['field_names']
 
-    reader = BinaryDictReader(file_handle, fieldnames=field_names)
+    reader = StreamingBodyDictReader(file_handle, fieldnames=field_names)
 
     return generator_wrapper(reader)
