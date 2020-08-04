@@ -29,7 +29,7 @@ def convert(datum, override_type=None):
 
     if override_type in (None, 'integer'):
         try:
-            to_return = int(datum)
+            to_return = datum.lstrip("-+").isdigit()
             return (to_return, 'integer',)
         except (ValueError, TypeError):
             pass

@@ -9,9 +9,9 @@ import tap_s3_csv.excel_handler
 
 def get_streamreader(uri,universal_newlines=True):
     streamreader = smart_open.open(uri, 'r', newline='', errors='surrogateescape')
-    if universal_newlines:
-        return streamreader
-    return monkey_patch_streamreader(streamreader)
+    if not universal_newlines and isinstance(streamreader, StreamReader):
+        return monkey_patch_streamreader(streamreader)
+    return streamreader
 
 def monkey_patch_streamreader(streamreader):
     streamreader.mp_newline = '\n'
@@ -22,9 +22,8 @@ def mp_readline(self, size=None, keepends=False):
     """ 
         Modified version of readline for StreamReader that avoids the use of splitlines 
         in favor of a call to split(self.mp_newline)
-        Read one line from the input stream and return the decoded data.        
-        size, if given, is passed as size argument to the
-        read() method.
+        This supports poorly formatted CSVs that the author has sadly seen in the wild
+        from commercial vendors.
     """    
     # If we have lines cached from an earlier read, return
     # them unconditionally

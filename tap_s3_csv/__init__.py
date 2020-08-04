@@ -121,7 +121,7 @@ def sync_table_file(config, s3_file, table_spec, schema):
             to_write = [{**conversion.convert_row(row, schema), **metadata}]        
             singer.write_records(table_name, to_write)
         except BrokenPipeError as bpe:
-            logger.error(f'Pipe to loader broke after {records_synced} records were written from {s3_file}')
+            logger.error(f'Pipe to loader broke after {records_synced} records were written from {s3_file}: troubled line was {row}')            
             raise bpe
         
         records_synced += 1
