@@ -3,3 +3,5 @@
 *.pyc
 .idea/
 tap_s3_csv/test/G2*.csv
+dist/
+build/
