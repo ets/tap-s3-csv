@@ -1,4 +1,4 @@
-from smart_open import smart_open
+import smart_open
 
 import boto3
 from codecs import StreamReader
@@ -8,7 +8,7 @@ import tap_s3_csv.excel_handler
 
 
 def get_streamreader(uri,universal_newlines=True):
-    streamreader = smart_open(uri, 'r', newline='', errors='surrogateescape')
+    streamreader = smart_open.open(uri, 'r', newline='', errors='surrogateescape')
     if universal_newlines:
         return streamreader
     return monkey_patch_streamreader(streamreader)

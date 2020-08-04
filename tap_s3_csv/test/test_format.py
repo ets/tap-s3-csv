@@ -1,6 +1,6 @@
 import unittest
 import re
-from smart_open import smart_open
+import smart_open
 import codecs
 
 
@@ -26,7 +26,7 @@ class TestFormatHandler(unittest.TestCase):
     def test_strip_newlines_local_custom(self):
         test_filename = './tap_s3_csv/test/sample_with_bad_newlines.csv'
                 
-        file_handle = smart_open(test_filename, 'rb', errors='surrogateescape')
+        file_handle = smart_open.open(test_filename, 'rb', errors='surrogateescape')
         reader = codecs.getreader('utf-8')(file_handle)
         reader = monkey_patch_streamreader(reader)
         iterator = get_filetype_handler(TEST_TABLE_SPEC, reader)
