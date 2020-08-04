@@ -1,44 +1,28 @@
 from smart_open import smart_open
 
 import boto3
-from botocore.response import StreamingBody
-import codecs
 from codecs import StreamReader
 import re
 import tap_s3_csv.csv_handler
 import tap_s3_csv.excel_handler
 
-from io import BytesIO
 
-def open_file_for_streaming(*args, **kwargs):    
-    streamreader = smart_open(*args, **kwargs)    
-    ## Need to monkey path the codecs reader
+def get_streamreader(uri,universal_newlines=True):
+    streamreader = smart_open(uri, 'r', newline='', errors='surrogateescape')
+    if universal_newlines:
+        return streamreader
+    return monkey_patch_streamreader(streamreader)
+
+def monkey_patch_streamreader(streamreader):
     streamreader.mp_newline = '\n'
     streamreader.readline = mp_readline.__get__(streamreader,StreamReader) 
     return streamreader
 
-# def get_file_handle(config, s3_path):
-#     bucket = config['bucket']
-#     s3_uri = f"s3://{bucket}/{s3_path}"
-#     return open_file_for_streaming(s3_uri, 'r', newline='', errors='surrogateescape')
-
-def get_file_handle(config, s3_path):
-    bucket = config['bucket']
-    s3_client = boto3.resource('s3')
-    s3_bucket = s3_client.Bucket(bucket)
-    s3_object = s3_bucket.Object(s3_path)    
-
-    streamable = s3_object.get()['Body']
-    
-    ## Need to monkey path the codecs reader
-    stream_decoder = codecs.getreader('utf-8')(streamable)
-    stream_decoder.mp_newline = '\n'
-    stream_decoder.readline = mp_readline.__get__(stream_decoder,StreamReader)
-    return stream_decoder #universal_newline_stripper(stream_decoder)
-
 def mp_readline(self, size=None, keepends=False):
-    """ Read one line from the input stream and return the
-        decoded data.
+    """ 
+        Modified version of readline for StreamReader that avoids the use of splitlines 
+        in favor of a call to split(self.mp_newline)
+        Read one line from the input stream and return the decoded data.        
         size, if given, is passed as size argument to the
         read() method.
     """    
@@ -108,25 +92,20 @@ def mp_readline(self, size=None, keepends=False):
             readsize *= 2
     return line
 
-
-def universal_newline_stripper(streaming_body):
-    for row in streaming_body:        
-        # print(row)
-        # yield re.sub(r'\u000D\u000A|[\u000A\u000B\u000C\u000D\u0085\u2028\u2029]', '', row)        
-        yield re.sub(r'[\u000A\u000B\u000C\u000D\u0085\u2028\u2029]', '', row)        
-
 def get_row_iterator(config, table_spec, s3_path):
-    file_handle = get_file_handle(config, s3_path)
+    bucket = config['bucket']
+    s3_uri = f"s3://{bucket}/{s3_path}"
+    universal_newlines = table_spec['universal_newlines'] if 'universal_newlines' in table_spec else True    
+    reader = get_streamreader(s3_uri,universal_newlines=universal_newlines)
+    return get_filetype_handler(table_spec, reader)
 
-    return get_filetype_handler(table_spec, file_handle)
-
-def get_filetype_handler(table_spec, file_handle):
+def get_filetype_handler(table_spec, reader):
 
     if table_spec['format'] == 'csv':
         return tap_s3_csv.csv_handler.get_row_iterator(
-            table_spec, file_handle)
+            table_spec, reader)
 
     elif table_spec['format'] == 'excel':
         return tap_s3_csv.excel_handler.get_row_iterator(
-            table_spec, file_handle)
+            table_spec, reader)
 
